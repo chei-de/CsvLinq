@@ -7,7 +7,11 @@ class TestCsvLinqBasics(unittest.TestCase):
 
     def setUp(self):
         csv_path = Path(r"Tests\cities.csv")
-        self.csv = CsvLinq(csv_path.absolute())
+        self.csv_file = open(csv_path, 'r').__enter__()
+        self.csv = CsvLinq(self.csv_file)
+
+    def tearDown(self):
+        self.csv_file.__exit__()
 
     def test_file_found(self):
         self.assertIsNotNone(self.csv)

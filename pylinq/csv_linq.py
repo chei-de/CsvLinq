@@ -1,6 +1,7 @@
 import csv
 
 import csv_linq_cell_trims as trims
+import linq_gen as lg
 
 class HeaderCollection:
     def __init__(self, header):
@@ -13,42 +14,19 @@ class HeaderCollection:
     def from_hdr(self, hdr):
         return self.header_map[hdr]
 
-class WhereGen:
-    def __init__(self, collection, header, row_num, criterion):
-        self.collection = collection
-        self.header = header
-        self.row_num = row_num
-        self.criterion = criterion
+    def from_hdr_best_bet(self, hdr):
+        result = [i for i, val in enumerate(self.header) if hdr.lower() in val.lower()]
 
-    def where(self, row, criterion):
-        try:
-            row = self.header.from_hdr(row)
-        except KeyError:
-            pass
+        if len(result) == 0:
+            raise ValueError("No Header found that is similar to {}".format(hdr))
 
-        return WhereGen(self, self.header, row, criterion)
+        return result[0]
 
-    def get_header(self):
-        return self.collection.get_header()
-
-    def __next__(self):
-        try:
-            for row in self.collection:
-                if not row:
-                    raise StopIteration
-                if self.criterion(row[self.row_num]):
-                    return row
-        except StopIteration:
-            raise
-        except TypeError:
-            raise StopIteration
-
-    def __iter__(self):
-        return self
-
+    def __str__(self):
+        return ", ".join(self.header)
 
 class CsvLinq:
-    def __init__(self, path, *cell_strips, delimiter=",", decimal_separator="."):
+    def __init__(self, csv_file, *cell_strips, delimiter=",", decimal_separator="."):
         self.decimal_separator = decimal_separator
 
         if len(cell_strips) == 0:
@@ -56,26 +34,18 @@ class CsvLinq:
         else:
             trim_pipe = trims.TrimPipeline(*cell_strips)
 
-        with open(path, "r") as csv_file:
-            reader = csv.reader(csv_file, delimiter=delimiter)
+        reader = csv.reader(csv_file, delimiter=delimiter)
 
-            self.header = HeaderCollection(list(map(trim_pipe, next(reader))))
-            self.lines = [list(map(trim_pipe, line)) for line in reader if line]
-            self.len = len(self.lines)
+        self.header = HeaderCollection(list(map(trim_pipe, next(reader))))
+        self.lines = [list(map(trim_pipe, line)) for line in reader if line]
+        self.len = len(self.lines)
 
     def get_header(self):
         return self.header
 
-    def where(self, row, criterion):
-        try:
-            row = self.header.from_hdr(row)
-        except KeyError:
-            pass
-
-        return WhereGen(iter(self), self.header, row, criterion)
-
     def __iter__(self):
-        return CsvLinq.CsvLinqIterator(self)
+        for line in self.lines:
+            yield line
 
     def __len__(self):
         return self.len
@@ -83,33 +53,13 @@ class CsvLinq:
     def __getitem__(self, idx):
         return self.lines[idx]
 
-    class CsvLinqIterator:
-        def __init__(self, csv):
-            self.csv = csv
-            self.index = 0
-            self.len = len(csv)
+# from pathlib import Path
+# csv_path = Path(r"D:\Arbeit\CsvLinq\Tests\cities.csv")
 
-        def __iter__(self):
-            if self.index == self.len:
-                raise StopIteration
-            return self
+# l = CsvLinq(csv_path)
+# headerset = l.get_header()
 
-        def __next__(self):
-
-            if self.index < self.len:
-                result = self.csv[self.index]
-                self.index += 1
-
-                return result
-
-            raise StopIteration
-
-
-from pathlib import Path
-
-csv_path = Path(r"D:\Arbeit\CsvLinq\Tests\cities.csv")
-
-l = CsvLinq(csv_path)
-for r in l.where("LatD", lambda x : x == "42"):
-
-    print(r)
+# for r in lg.LinqGenerator.new(l).\
+#             where(lambda x: x[headerset.from_hdr("LatD")] == "41").\
+#             where(lambda x: int(x[headerset.from_hdr("LatM")]) > 40):
+#     print(r) 
