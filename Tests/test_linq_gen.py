@@ -1,5 +1,5 @@
 import unittest
-from pylinq.linq_gen import LinqGenerator
+from pylinq.linq_gen import LinqGroupByGen, LinqGenerator
 
 class TestCsvLinqBasics(unittest.TestCase):
 
@@ -74,7 +74,78 @@ class TestCsvLinqBasics(unittest.TestCase):
         for idx, v in enumerate(LinqGenerator.new(data).where(is_prime).select(lambda x : "{}p".format(x))):
             self.assertEqual(expected[idx], v)
 
+    def test_group_by_gen_simple(self):
+        test_data = [('c', 1, 6.231), ('c', 1, 6.231), ('a', 1, 54.231), ('v', 6, 6.231)]
 
+        gb_order_first_keys_counts = { 'c': 2, 'a': 1, 'v': 1 }
+        gb_order_second_keys_counts = { 1 : 3, 6 : 1 }
+        gb_order_third_keys_counts = { 6.231 : 3, 54.231 : 1 }
+
+        gb_gen = LinqGroupByGen.new(test_data, lambda x : x[0])
+
+        for key in gb_gen:
+            self.assertTrue(key in gb_order_first_keys_counts)
+            self.assertEqual(len(gb_gen[key]), gb_order_first_keys_counts[key])   
+
+
+        gb_gen = LinqGroupByGen.new(test_data, lambda x : x[1])
+        for key in gb_gen:
+            self.assertTrue(key in gb_order_second_keys_counts)
+            self.assertEqual(len(gb_gen[key]), gb_order_second_keys_counts[key])  
+
+
+        gb_gen = LinqGroupByGen.new(test_data, lambda x : x[2])
+        for key in gb_gen:
+            self.assertTrue(key in gb_order_third_keys_counts)
+            self.assertEqual(len(gb_gen[key]), gb_order_third_keys_counts[key])  
+
+
+    def test_group_by_gen_chained(self):
+        test_data = [('x', 1), ('x', 23), ('c', 34), ('c', 35), ('x', 24), ('a', 23), ('x', 1)]
+        expected = { 
+            'x' : ["Test 23", "Test 24"], 
+            'c' : ["Test 34", "Test 35"], 
+            'a' : ["Test 23"]
+        }
+
+        gen = LinqGenerator.new(test_data).where(lambda x : x[1] > 1).group_by(lambda x : x[0])
+        for k in gen:
+            tmp = gen[k].select(lambda x : "Test {}".format(x[1]))
+
+            self.assertTrue(k in expected)
+            for val in tmp:
+                self.assertTrue(val in expected[k])
+
+    def test_group_by_gen_count(self):
+        test_data = [('x', 1), ('x', 23), ('c', 34), ('c', 35), ('x', 24), ('a', 23), ('x', 1)]
+        expected = { 
+            'x' : 2, 
+            'c' : 2, 
+            'a' : 1
+        }
+
+        gen = LinqGenerator.new(test_data).where(lambda x : x[1] > 1).group_by(lambda x : x[0])
+        for k in gen:
+            tmp = gen[k].select(lambda x : "Test {}".format(x[1]))
+
+            self.assertTrue(k in expected)
+            for val in tmp:
+                self.assertEqual(expected[k], val.count())
+
+    def test_group_by_gen_sum_int(self):
+        test_data = [('x', 12), ('x', 23), ('c', 34), ('c', 35), ('x', 24), ('a', 23), ('x', 1)]
+        expected = { 
+            'x' : 12 + 23 + 24 + 1, 
+            'c' : 34 + 35, 
+            'a' : 23
+        }
+
+        gen = LinqGenerator.new(test_data).group_by(lambda x : x[0])
+        for k in gen:
+            self.assertTrue(k in expected)
+            for val in gen[k]:
+                self.assertEqual(expected[k], val.sum(lambda x : x[1]))
 
         
+
         
